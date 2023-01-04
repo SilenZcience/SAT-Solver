@@ -103,5 +103,59 @@ to_cnf_helper(not(or(P, Q)), CNF) :- !,
 
 
 %% solve(+CNF).
-solve(_CNF) :-
-    true.
+solve(CNF) :-
+    subs(CNF, Res),
+    solve_all(Res,true).
+
+
+subs([], []) :-
+    !.
+subs([H|T], [A|Res]) :-
+    is_list(H),
+    !,
+    subs(H, A),
+    subs(T, Res).
+subs([A|T], [A|Res]) :-
+    var(A),
+    !, 
+    (A=true; A=false),
+    subs(T, Res).
+subs([not(A)|T], [not(A)|Res]) :-
+    var(A),
+    !,
+    (A=true; A=false),
+    subs(T, Res).
+subs([H|T], [H|Res]) :-
+    subs(T,Res).
+
+
+solve_all([], false) :- !.
+solve_all([true], true) :- !.
+solve_all([false], false) :- !.
+solve_all([not(false)], true) :- !.
+solve_all([not(true)], false) :- !.
+
+%% and
+solve_all([H|T], true) :-
+    is_list(H),
+    !,
+    solve_all(H, true),
+    solve_and(T, true),
+    !.
+
+%% or
+solve_all([H|T], true) :- 
+    solve_all([H], Hres),
+    !,
+    solve_all(T, Tres),
+    or(Hres, Tres).
+
+
+solve_and([], true) :- !.
+solve_and(Lst, Res) :-
+    solve_all(Lst, Res).
+
+
+or(true,false).
+or(true,true).
+or(false,true).
