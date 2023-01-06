@@ -53,20 +53,27 @@ to_cnf_helper(lit(L), [[L]]) :- !.
 to_cnf_helper(and(P, Q), CNF) :- !,
 	to_cnf_helper(P, CNF1),
 	to_cnf_helper(Q, CNF2),
+	
+	flattening_list(CNF1, CNF11),
+	flattening_list(CNF2, CNF22),
 	% format("~w~n", "test"), % Debug TODO: remove
     append(CNF1, CNF2, CNF).
 
 % Distributive Law
-to_cnf_helper(or(A, and(B, C)), Res) :- !,
-	to_cnf(and(or(A, B), or(A, C)), Res).
-to_cnf_helper(or(and(B, C), A), Res) :- !,
-	to_cnf(and(or(A, B), or(A, C)), Res).
+to_cnf_helper(or(A, and(B, C)), Res) :-
+	to_cnf_helper(and(or(A, B), or(A, C)), Res),
+	!.
+to_cnf_helper(or(and(B, C), A), Res) :-
+	to_cnf_helper(and(or(A, B), or(A, C)), Res),
+	!.
 
 % Default or
-to_cnf_helper(or(P, Q), [[P1, Q1]|CNF]) :- !,
-	to_cnf_helper(P, [[P1]|CNF1]),
-	to_cnf_helper(Q, [[Q1]|CNF2]),
-    append(CNF1, CNF2, CNF).
+to_cnf_helper(or(P, Q), [CNF]) :- 
+	to_cnf_helper(P, [CNF1]),
+	to_cnf_helper(Q, [CNF2]),
+	flattening_list(CNF1, CNF11),
+	flattening_list(CNF2, CNF22),
+    append(CNF11, CNF22, CNF), !.
 
 % Default Negation
 to_cnf_helper(not(lit(L)), [[not(L)]]) :- !.
@@ -79,6 +86,15 @@ to_cnf_helper(not(and(P, Q)), CNF) :- !,
 	to_cnf_helper(or(not(P), not(Q)), CNF).
 to_cnf_helper(not(or(P, Q)), CNF) :- !,
 	to_cnf_helper(and(not(P), not(Q)), CNF).
+
+flattening_list([], []).
+flattening_list([H|T], R) :- 
+    is_list(H),
+    flattening_list(T, T1), 
+    !, 
+    append(H, T1, R).
+flattening_list([H|T], [H|T1]) :- 
+    flattening_list(T, T1).
 
 % With Double Negation Solved and De Morgan's Law implemented
 % step 2 of to_cnf is finished (according to slides L3)

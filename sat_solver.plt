@@ -35,7 +35,7 @@ test(to_cnf_bt3,[all(Res = [[[A,B]]])]) :-
     to_cnf(or(lit(A),lit(B)), Res),
     is_list(Res).
 
-test(to_cnf_bt2,[all(Res = [[[A],[B]]])]) :-
+test(to_cnf_bt4,[all(Res = [[[A],[B]]])]) :-
     to_cnf(and(lit(A),lit(B)), Res),
     is_list(Res).
 
