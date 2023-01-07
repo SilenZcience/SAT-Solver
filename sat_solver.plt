@@ -128,6 +128,22 @@ test(sat19, [nondet,all([X,Y] == [[true,true]])]) :-
     to_cnf(and(min_one_pos([lit(X),lit(Y)]),equivalence(lit(X),lit(Y))), CNF),
     solve(CNF).
 
+test(sat20, [nondet,true((X == false, Y == true);
+						(X == true, Y == false);
+						(X == true, Y == true))]) :-
+	to_cnf(min_one_pos([lit(X),lit(Y)]), CNF),
+	solve(CNF).
+
+test(sat21, [nondet,true((X == false, Y == false, Z == true);
+						(X == false, Y == true, Z == false);
+						(X == true, Y == false; Z == false);
+						(X == false, Y == true, Z == true);
+						(X == true, Y == false, Z == true);
+						(X == true, Y == true, Z == false);
+						(X == true, Y == true, Z == true))]) :-
+	to_cnf(min_one_pos([lit(X),lit(Y), lit(Z)]), CNF),
+	solve(CNF).
+
 :- end_tests(verify_sat).
 
 :- begin_tests(verify_unsat).

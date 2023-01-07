@@ -44,115 +44,94 @@ normalise_list([H|T], [NH|NT]) :-
 
 
 to_cnf(Formula, CNF) :-
-	normalise(Formula, Normalized),
-	to_cnf_helper_all(Normalized, Pushed), !,
-	format("~w~n", Pushed), % TODO: remove debug format
-	clausal_form(Pushed, CNF).
+	normalise(Formula, CNF1), !,
+	to_cnf2_loop(CNF1, CNF2), !,
+	to_cnf3_loop(CNF2, CNF3), !,
+	% format("~w~n", CNF3), % TODO: remove debug format
+	to_list(CNF3, CNF), !.
 	
-to_cnf_helper_all(Formula, Result) :-
-	to_cnf_helper(Formula, TempResult),
-	(Formula = TempResult -> Result = Formula ; to_cnf_helper_all(TempResult, Result)).
+% Push negations inward, until exclusively lit(X) elements
+% are negated.
+to_cnf2_loop(Formula, Result) :-
+	to_cnf2(Formula, TempResult),
+	(Formula = TempResult -> Result = Formula ;
+		to_cnf2_loop(TempResult, Result)).
 
-to_cnf_helper(not(and(P, Q)), or(not(P), not(Q))) :- !.
-to_cnf_helper(not(or(P, Q)), and(not(P), not(Q))) :- !.
+% De Morgan's Law
+to_cnf2(not(and(P, Q)), or(not(P), not(Q))).
+to_cnf2(not(or(P, Q)), and(not(P), not(Q))).
 
-to_cnf_helper(not(not(P)), P) :- !.
-to_cnf_helper(not(Formula), not(Result)) :-
-	to_cnf_helper(Formula, Result).
+% Double negation
+to_cnf2(not(not(P)), P).
 
-to_cnf_helper(and(P, or(Q, R)), or(and(P, Q), and(P, R))) :- !.
-to_cnf_helper(and(P, Q), and(P1, Q1)) :-
-	!,
-	to_cnf_helper(P, P1),
-	to_cnf_helper(Q, Q1).
-to_cnf_helper(or(P, and(Q, R)), and(or(P, Q), or(P, R))) :- !.
-to_cnf_helper(or(P, Q), or(P1, Q1)) :-
-	!,
-	to_cnf_helper(P, P1),
-	to_cnf_helper(Q, Q1).
-to_cnf_helper(Formula, Formula).
-
-
-
-clausal_form(and(P, Q), Clauses) :-
-    !,
-    clausal_form(P, PClauses),
-    clausal_form(Q, QClauses),
-    append(PClauses, QClauses, Clauses).
-clausal_form(or(P, Q), [Clauses]) :- !,
-	clausal_form(P, [CNF1]),
-	clausal_form(Q, [CNF2]),
-	append(CNF1, CNF2, Clauses), !.
-clausal_form(lit(L), [[L]]) :- !.
-clausal_form(not(lit(L)), [[not(L)]]) :- !.
+% Default
+to_cnf2(not(Formula), not(Result)) :-
+	to_cnf2(Formula, Result).
+to_cnf2(and(P, Q), and(P1, Q1)) :-
+	to_cnf2(P, P1),
+	to_cnf2(Q, Q1).
+to_cnf2(or(P, Q), or(P1, Q1)) :-
+	to_cnf2(P, P1),
+	to_cnf2(Q, Q1).
+to_cnf2(Formula, Formula).
 
 
+% Shift disjunctions until CNF is reached
+to_cnf3_loop(Formula, Result) :-
+	to_cnf3(Formula, TempResult),
+	(Formula = TempResult -> Result = Formula ;
+		to_cnf3_loop(TempResult, Result)).
 
-% % Default literal
-% to_cnf_helper(lit(L), [[L]]) :- !.
+% Distributive Law
+to_cnf3(or(P, and(Q, R)), and(or(P, Q), or(P, R))).
+to_cnf3(or(and(Q, R), P), and(or(P, Q), or(P, R))).
 
-% % Default and
-% to_cnf_helper(and(P, Q), CNF) :- !,
-% 	to_cnf_helper(P, CNF1),
-% 	to_cnf_helper(Q, CNF2),
-% 	% format("~w~n", "test"), % Debug TODO: remove
-%     append(CNF1, CNF2, CNF).
+% Default
+to_cnf3(not(Formula), not(Result)) :-
+	to_cnf3(Formula, Result).
+to_cnf3(and(P, Q), and(P1, Q1)) :-
+	to_cnf3(P, P1),
+	to_cnf3(Q, Q1).
+to_cnf3(or(P, Q), or(P1, Q1)) :-
+	to_cnf3(P, P1),
+	to_cnf3(Q, Q1).
+to_cnf3(Formula, Formula).
 
-% % Distributive Law
-% to_cnf_helper(or(A, and(B, C)), CNF) :-
-% 	to_cnf_helper(and(or(A, B), or(A, C)), CNF),
-% 	!.
-% to_cnf_helper(or(and(B, C), A), CNF) :-
-% 	to_cnf_helper(and(or(A, B), or(A, C)), CNF),
-% 	!.
+% Translate recursive syntax tree to list of lists.
+to_list(lit(P), [[P]]) :- !.
+to_list(not(lit(P)), [[not(P)]]) :- !.
+to_list(or(P, Q), [CNF]) :- 
+    to_list(P, [CNF1]),
+    to_list(Q, [CNF2]),
+    append(CNF1, CNF2, CNF), !.
+to_list(and(P, Q), CNF) :-
+    to_list(P, CNF1),
+    to_list(Q, CNF2),
+    append(CNF1, CNF2, CNF).
 
-% % Default or
-% to_cnf_helper(or(P, Q), [CNF]) :- 
-% 	to_cnf_helper(P, [CNF1]),
-% 	to_cnf_helper(Q, [CNF2]),
-%     append(CNF1, CNF2, CNF), !.
-
-% % Default Negation
-% to_cnf_helper(not(lit(L)), [[not(L)]]) :- !.
-% % Double Negation
-% to_cnf_helper(not(not(L)), CNF) :- !,
-% 	to_cnf_helper(L, CNF).
-
-% % De Morgan's laws
-% to_cnf_helper(not(and(P, Q)), CNF) :- !,
-% 	to_cnf_helper(or(not(P), not(Q)), CNF).
-% to_cnf_helper(not(or(P, Q)), CNF) :- !,
-% 	to_cnf_helper(and(not(P), not(Q)), CNF).
-
-% flattening_list([], []).
-% flattening_list([H|T], R) :- 
-%     is_list(H),
-%     flattening_list(T, T1), 
-%     !, 
-%     append(H, T1, R).
-% flattening_list([H|T], [H|T1]) :- 
-%     flattening_list(T, T1).
-
-% With Double Negation Solved and De Morgan's Law implemented
-% step 2 of to_cnf is finished (according to slides L3)
-
-% With the Disjunctive Distributive Law implemented
-% we have finished step 3 of to_cnf
-
-% TODO: even tho the run_tests(cnf). seem to pass we still need to
-% implement the other steps on the slides.
-% step 4 would be to simplify, yet the tests seem to not want that implemented....
 % https://en.wikipedia.org/wiki/Logical_equivalence
+% TODO: 
+% run_tests(verify_sat).
+% Tests 9, 10, 12 fail!
+% Tests 9, 10 fail, because exactly_one_pos is wrong.
+% Test 12 fails, even tho the to_cnf/min_one_pos is correct
+% Test 12:
+% to_cnf(and(lit(X),and(lit(Y),and(not(lit(Z)),min_one_pos([lit(X),lit(Y),lit(Z)])))), CNF).
+% gives:
+% CNF = [[X], [Y], [not(Z)], [X, Y, Z, false]]
+% which is correct!
+% solve() has a problem with the 'false' within the or-statement... it shouldn't!
+
+% i suggest we implement a simplify method to work around the problem.
 % simplify possibilities:
 % Negation Law:
-% 	and(X, not(X)) -> /
-% 	or(X, not(X)) -> /
+% 	[[X, not(X), ...]] -> []
 % Tautologies:
-% 	and(X, X) -> X
-%	or(X, X) -> X
-% Absorption Law:
-% 	or(X, and(X, Y)) -> X
-% 	and(X, or(X, Y)) -> X
+% 	[[X, X, ...]] -> [[X, ...]]
+% definite true
+% 	when an or statement contains a true, we can ignore the entire or statement
+% when an or statement contains more than one element we can delete every 'false' element,
+% as long as the statement is left with at least 1 element.
 
 
 %% solve(+CNF).
