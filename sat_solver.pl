@@ -150,59 +150,215 @@ to_list(and(P, Q), CNF) :-
 % should implement unit propagation, clause simplication, and variable branching.
 
 %% solve(+CNF).
-solve(CNF) :-
-    subs(CNF, Res),
-    solve_all(Res,true).
+%% solve(+CNF).
+solve(CNF) :- 
+    remove_elements_already_set(CNF, NEWCNF), 
+    (CNF == NEWCNF -> 
+        dpll(NEWCNF) ; 
+        check_brackets(NEWCNF, Res), 
+        dpll(Res)).
 
+check_brackets(CNF, NEWCNF) :-
+    maplist(term_to_atom, CNF, CNF1),
+    atomics_to_string(CNF1, CNF2),
+    split_string(CNF2, '[', '', Res),
+    get_element(0, Res, Temp1),
+    get_element(1, Res, Temp2),
+    ((Temp1 == "", Temp2 == "") -> 
+        append(CNF, NEWCNF) ; 
+        NEWCNF = CNF).
 
-subs([], []) :-
+%%[[false, [not(X)], [Y]]] -> [[[not(X)],[Y]]]
+remove_elements_already_set(CNF, NEWCNF) :-
+    maplist(remover(true), CNF, Res),
+    maplist(remover(false), Res, Res1),
+    maplist(remover([true]), Res1, Res2),
+    maplist(remover([false]), Res2, Res3),
+    exclude(empty, Res3, NEWCNF).
+
+has_empty_clause(CNF) :-
+    member([], CNF), !.
+
+unit_clause([H|_],H) :-
+    length(H, 1),
+    H \== true, 
+    H \== false, 
     !.
-subs([H|T], [A|Res]) :-
-    is_list(H),
-    !,
-    subs(H, A),
-    subs(T, Res).
-subs([A|T], [A|Res]) :-
-    var(A),
+unit_clause([_|T],R) :-
+    unit_clause(T,R).
+
+negate(not(X),X) :- !.
+negate(X,not(X)) :- !.
+
+member_checkUnit(false, X) :- 
+    var(X), 
     !, 
-    (A=true; A=false),
-    subs(T, Res).
-subs([not(A)|T], [not(A)|Res]) :-
-    var(A),
-    !,
-    (A=true; A=false),
-    subs(T, Res).
-subs([H|T], [H|Res]) :-
-    subs(T,Res).
+    X == false.
+member_checkUnit(true, X) :- 
+    var(X), 
+    !, 
+    X == true.
+member_checkUnit(X, [H|T]) :- 
+    X == H, !; 
+    member_checkUnit(X, T), !.
 
 
-solve_all([], false) :- !.
-solve_all([true], true) :- !.
-solve_all([false], false) :- !.
-solve_all([not(false)], true) :- !.
-solve_all([not(true)], false) :- !.
+member_checkBranch(false, X) :- 
+    var(X), 
+    !, 
+    X == false.
+member_checkBranch(true, X) :- 
+    var(X), 
+    !, 
+    X == true.
+member_checkBranch(X, [H|T]) :- 
+    X == H, !; 
+    member_checkBranch(X, T), !.
+member_checkBranch(X, [H|T]) :- 
+    is_list(H), member(X, H) ; 
+    member_checkBranch(X, T), !.
 
-%% and
-solve_all([H|T], true) :-
-    is_list(H),
-    !,
-    solve_all(H, true),
-    solve_and(T, true),
+
+remover(_, [], []) :- !.
+remover(R, [H|T], T2) :- 
+    \+ H \== R, 
+    remover(R, T, T2), 
+    !.
+remover(R, [H|T], [H|T2]) :- 
+    H \== R, 
+    remover(R, T, T2), 
     !.
 
-%% or
-solve_all([H|T], true) :- 
-    solve_all([H], Hres),
+simplify_dpllUnit(_Lit, [], []).
+simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
+    (member_checkUnit(Lit, H) -> 
+        V = [] ; 
+        member_checkUnit([Lit], H) -> 
+            K = H, remover([Lit], K, V); 
+            V = H, V \== Lit), simplify_dpllUnit(Lit, T, Simplified).
+
+simplify_dpllBranch(_Lit, [], []).
+simplify_dpllBranch(Lit, [H|T], [V|Simplified]) :- 
+    (member_checkBranch(Lit, H) -> V = [] ; 
+    member_checkBranch([Lit], H) -> K = H, 
+    remover([Lit], K, V); V = H, V \== Lit), 
+    simplify_dpllBranch(Lit, T, Simplified).
+
+empty([]).
+
+check_CNF(CNF, Var) :-
+    length(CNF, N),
+    maplist(length, CNF, NEWCNF),
+    (var(Var) ->
+        negate(NegLit, Var)
+        ;
+        negate(Var, NegLit)),
+    ((N == 2, length(NEWCNF, 2), (member_checkUnit(NegLit, CNF);member_checkUnit([NegLit], CNF);member_checkUnit(2, NEWCNF), get_element(1, CNF, Temp), member_checkUnit([Var], Temp), member_checkUnit([NegLit], Temp))) -> true ;
+    list_to_set(CNF, Temp),
+    ((N == 3, length(Temp, 1)) -> true;fail)).
+
+check_CNFBranch(CNF) :-
+    get_element(0, CNF, CNF1),
+    get_element(0, CNF1, CNF2),
+    get_element(1, CNF1, CNF3),
+    get_element(0, CNF2, Lit1),
+    get_element(0, CNF3, Lit2),
+    negate(NegLit, Lit2),
+    Lit1 == NegLit.
+
+simplify(Lit, CNF, NEWCNF, N) :-
+    \+check_CNFBranch(CNF),
+    (var(Lit) ->
+        negate(NegLit, Lit)
+        ;
+        negate(Lit, NegLit)),
+    maplist(remover(NegLit), CNF, CNF1),
+    maplist(remover([NegLit]), CNF1, CNF2),
+    (N == 0 -> 
+        simplify_dpllUnit(Lit, CNF2, CNF3);
+        simplify_dpllBranch(Lit, CNF2, CNF3)),
+    exclude(empty, CNF3, NEWCNF).
+
+
+dpll([]).
+dpll(CNF) :-
+    \+has_empty_clause(CNF),
+    unit_clause(CNF, [Var]),
+    \+check_CNF(CNF, Var),
+    (var(Var) -> Var = true; (is_list(Var), get_element(0,Var, New), var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
+    simplify(Var, CNF, NEWCNF, 0), 
+    dpll(NEWCNF), !.
+dpll(CNF) :-
+    \+has_empty_clause(CNF),
+    \+unit_clause(CNF, _), 
+    term_variables(CNF, Vars),
+    member(Var, Vars),
     !,
-    solve_all(T, Tres),
-    or(Hres, Tres).
+    (Var = true, simplify(Var, CNF, NEWCNF, 1); Var = false, negate(NegLit, Var), simplify(NegLit, CNF, NEWCNF, 1)), 
+    dpll(NEWCNF).
+        
+
+get_element(0, [H|_], H) :- !.
+get_element(N, [_|T], H) :- 
+    N > 0, 
+    N1 is N - 1, 
+    get_element(N1, T, H), !.
 
 
-solve_and([], true) :- !.
-solve_and(Lst, Res) :-
-    solve_all(Lst, Res).
+
+% solve(CNF) :-
+%     subs(CNF, Res),
+%     solve_all(Res,true).
 
 
-or(true,false).
-or(true,true).
-or(false,true).
+% subs([], []) :-
+%     !.
+% subs([H|T], [A|Res]) :-
+%     is_list(H),
+%     !,
+%     subs(H, A),
+%     subs(T, Res).
+% subs([A|T], [A|Res]) :-
+%     var(A),
+%     !, 
+%     (A=true; A=false),
+%     subs(T, Res).
+% subs([not(A)|T], [not(A)|Res]) :-
+%     var(A),
+%     !,
+%     (A=true; A=false),
+%     subs(T, Res).
+% subs([H|T], [H|Res]) :-
+%     subs(T,Res).
+
+
+% solve_all([], false) :- !.
+% solve_all([true], true) :- !.
+% solve_all([false], false) :- !.
+% solve_all([not(false)], true) :- !.
+% solve_all([not(true)], false) :- !.
+
+% %% and
+% solve_all([H|T], true) :-
+%     is_list(H),
+%     !,
+%     solve_all(H, true),
+%     solve_and(T, true),
+%     !.
+
+% %% or
+% solve_all([H|T], true) :- 
+%     solve_all([H], Hres),
+%     !,
+%     solve_all(T, Tres),
+%     or(Hres, Tres).
+
+
+% solve_and([], true) :- !.
+% solve_and(Lst, Res) :-
+%     solve_all(Lst, Res).
+
+
+% or(true,false).
+% or(true,true).
+% or(false,true).
