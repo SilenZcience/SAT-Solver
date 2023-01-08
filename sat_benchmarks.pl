@@ -2,6 +2,13 @@
 :- use_module(sat_solver).
 :- use_module('resources/dimacs_parser').
 
+see_input(Index, Input) :-
+	Index > 0,
+	Index < 8,
+	atom_concat('resources/sat_benchmarks/',Index,TempPath),
+	atom_concat(TempPath,'.cnf',Path),
+	dimacs_to_prolog(Path, Input), !.
+
 run_benchmarks :-
     format("Running benchmarks..~n", []),
     MaxIndex = 7,

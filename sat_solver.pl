@@ -145,7 +145,9 @@ to_list(and(P, Q), CNF) :-
 % 	when an or statement contains a true, we can ignore the entire or statement
 % when an or statement contains more than one element we can delete every 'false' element,
 % as long as the statement is left with at least 1 element.
-
+% Task (quote pdf)
+% Implement the DPLL algorithm for this as discussed in the lecture. That means, you
+% should implement unit propagation, clause simplication, and variable branching.
 
 %% solve(+CNF).
 solve(CNF) :-
