@@ -4,9 +4,8 @@
 :- use_module(library(lists)).
 
 normalise(lit(L), lit(L)) :- !.
-normalise(equivalence(P, Q), and(or(not(P1), Q1), or(not(Q1), P1))) :- !,
-    normalise(P, P1),
-    normalise(Q, Q1).
+normalise(equivalence(A, B), NFormula) :-
+    normalise(and(implies(A, B), implies(B, A)), NFormula).
 normalise(implies(P, Q), or(not(P1), Q1)) :- !,
     normalise(P, P1),
     normalise(Q, Q1).
@@ -19,27 +18,43 @@ normalise(or(P, Q), or(P1, Q1)) :- !,
 normalise(not(P), not(P1)) :- !,
     normalise(P, P1).
 
-normalise(min_one_pos(List), NFormula) :-
-	normalise_list(List, NList),
-	normalise_min_one_pos(NList, NFormula).
+normalise(min_one_pos(ListOfVars), NFormula) :- !,
+	normalise_list(ListOfVars, NList),
+	min_one_pos(NList, NFormula).
 
-normalise(exactly_one_pos(List), NFormula) :-
-	normalise_list(List, NList),
-	normalise_exactly_one_pos(NList, NFormula).
+normalise(exactly_one_pos(ListOfVars), NFormula) :- !,
+	normalise_list(ListOfVars, NList),
+	exactly_one_pos(NList, NFormula).
 
-normalise_min_one_pos([], lit(false)).
-normalise_min_one_pos([H|T], or(H, Rest)) :-
-	normalise_min_one_pos(T, Rest).
+% Concatenate all elements by or
+min_one_pos([], lit(false)) :- !.
+min_one_pos([H|T], or(H, Rest)) :- !,
+	min_one_pos(T, Rest).
 
-normalise_exactly_one_pos([], lit(false)).
-normalise_exactly_one_pos([H|T], or(H, and(not(H), Rest))) :-
-	normalise_exactly_one_pos(T, Rest).
+% Do the recursive call n times, with n = Length of List
+exactly_one_pos(ListOfVars, NFormula) :-
+	length(ListOfVars, Length),
+	exactly_one_pos(ListOfVars, Length, NFormula), !.
 
-normalise_list([], []).
-normalise_list([H|T], [NH|NT]) :-
+% Create DNF; Each conjuction has all but one element negated.
+% Creates a lot of unnecessary elements, but returns a correct result.
+exactly_one_pos(_, 0, lit(false)) :- !.
+exactly_one_pos([H|T], Length, or(and(H, NegatedList), NFormula)) :-
+	% format("~w~n", Length), % TODO: remove debug format
+	% format("~w~n", H), % TODO: remove debug format
+	NewLength is Length -1,
+	append(T, [H], RotatetList),
+	negate_list(T, NegatedList), 
+	exactly_one_pos(RotatetList, NewLength, NFormula), !.
+
+negate_list([], lit(true)) :- !.
+negate_list([H|T], and(not(H), NT)) :- !,
+	negate_list(T, NT).
+
+normalise_list([], []) :- !.
+normalise_list([H|T], [NH|NT]) :- !,
 	normalise(H, NH),
 	normalise_list(T, NT).
-
 
 
 
@@ -47,7 +62,7 @@ to_cnf(Formula, CNF) :-
 	normalise(Formula, CNF1), !,
 	to_cnf2_loop(CNF1, CNF2), !,
 	to_cnf3_loop(CNF2, CNF3), !,
-	% format("~w~n", CNF3), % TODO: remove debug format
+	format("~w~n", CNF1), % TODO: remove debug format
 	to_list(CNF3, CNF), !.
 	
 % Push negations inward, until exclusively lit(X) elements
@@ -97,6 +112,7 @@ to_cnf3(or(P, Q), or(P1, Q1)) :-
 	to_cnf3(Q, Q1).
 to_cnf3(Formula, Formula).
 
+
 % Translate recursive syntax tree to list of lists.
 to_list(lit(P), [[P]]) :- !.
 to_list(not(lit(P)), [[not(P)]]) :- !.
@@ -112,10 +128,7 @@ to_list(and(P, Q), CNF) :-
 % https://en.wikipedia.org/wiki/Logical_equivalence
 % TODO: 
 % run_tests(verify_sat).
-% Tests 9, 10, 12 fail!
-% Tests 9, 10 fail, because exactly_one_pos is wrong.
-% Test 12 fails, even tho the to_cnf/min_one_pos is correct
-% Test 12:
+% Tests 12 fails! :
 % to_cnf(and(lit(X),and(lit(Y),and(not(lit(Z)),min_one_pos([lit(X),lit(Y),lit(Z)])))), CNF).
 % gives:
 % CNF = [[X], [Y], [not(Z)], [X, Y, Z, false]]
