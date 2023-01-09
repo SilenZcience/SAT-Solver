@@ -37,14 +37,12 @@ exactly_one_pos(ListOfVars, NFormula) :-
 	exactly_one_pos(ListOfVars, Length, NFormula), !.
 
 % Create DNF; Each conjuction has all but one element negated.
-% Creates a lot of unnecessary elements, but returns a correct result ?!
+% Creates a lot of unnecessary elements, but returns a correct result!
 exactly_one_pos(_, 0, lit(false)) :- !.
 exactly_one_pos([H|T], 1, NFormula) :- 
 	negate_list(T, NegatedList),
 	NFormula = and(H, NegatedList).
 exactly_one_pos([H|T], Length, NFormula) :-
-	% format("~w~n", Length), % TODO: remove debug format
-	% format("~w~n", H), % TODO: remove debug format
 	NewLength is Length -1,
 	append(T, [H], RotatetList),
 	negate_list(T, NegatedList),
@@ -55,11 +53,13 @@ negate_list([], lit(true)) :- !.
 negate_list([H|T], Result) :-
     negate_list(T, NT),
     (
+		% simplify (last element doesn't need to call 'and')
 		NT = lit(true) ->  Result = not(H);
 		Result = and(not(H), NT)
     ).
 
-
+% normalise all elements from min_one_pos and exactly_one_pos
+% unnecessary if only lit() values are used within these terms.
 normalise_list([], []) :- !.
 normalise_list([H|T], [NH|NT]) :- !,
 	normalise(H, NH),
@@ -71,7 +71,9 @@ to_cnf(Formula, CNF) :-
 	normalise(Formula, CNF1), !,
 	to_cnf2_loop(CNF1, CNF2), !,
 	to_cnf3_loop(CNF2, CNF3), !,
-	format("~w~n", CNF1), % TODO: remove debug format
+	% format("~w~n", CNF1), % Debug
+	% format("~w~n", CNF2), % Debug
+	% format("~w~n", CNF3), % Debug
 	to_list(CNF3, CNF), !.
 	
 % Push negations inward, until exclusively lit(X) elements
@@ -134,31 +136,7 @@ to_list(and(P, Q), CNF) :-
     to_list(Q, CNF2),
     append(CNF1, CNF2, CNF).
 
-% https://en.wikipedia.org/wiki/Logical_equivalence
-% TODO: 
-% run_tests(verify_sat).
-% Tests 12 fails! :
-% to_cnf(and(lit(X),and(lit(Y),and(not(lit(Z)),min_one_pos([lit(X),lit(Y),lit(Z)])))), CNF).
-% gives:
-% CNF = [[X], [Y], [not(Z)], [X, Y, Z, false]]
-% which is correct!
-% solve() has a problem with the 'false' within the or-statement... it shouldn't!
-
-% i suggest we implement a simplify method to work around the problem.
-% simplify possibilities:
-% Negation Law:
-% 	[[X, not(X), ...]] -> []
-% Tautologies:
-% 	[[X, X, ...]] -> [[X, ...]]
-% definite true
-% 	when an or statement contains a true, we can ignore the entire or statement
-% when an or statement contains more than one element we can delete every 'false' element,
-% as long as the statement is left with at least 1 element.
-% Task (quote pdf)
-% Implement the DPLL algorithm for this as discussed in the lecture. That means, you
-% should implement unit propagation, clause simplication, and variable branching.
-
-%% solve(+CNF).
+% TODO: fix tests unsat5, unsat6, unsat12
 %% solve(+CNF).
 solve(CNF) :- 
     remove_elements_already_set(CNF, NEWCNF), 
@@ -312,62 +290,3 @@ get_element(N, [_|T], H) :-
     N > 0, 
     N1 is N - 1, 
     get_element(N1, T, H), !.
-
-
-
-% solve(CNF) :-
-%     subs(CNF, Res),
-%     solve_all(Res,true).
-
-
-% subs([], []) :-
-%     !.
-% subs([H|T], [A|Res]) :-
-%     is_list(H),
-%     !,
-%     subs(H, A),
-%     subs(T, Res).
-% subs([A|T], [A|Res]) :-
-%     var(A),
-%     !, 
-%     (A=true; A=false),
-%     subs(T, Res).
-% subs([not(A)|T], [not(A)|Res]) :-
-%     var(A),
-%     !,
-%     (A=true; A=false),
-%     subs(T, Res).
-% subs([H|T], [H|Res]) :-
-%     subs(T,Res).
-
-
-% solve_all([], false) :- !.
-% solve_all([true], true) :- !.
-% solve_all([false], false) :- !.
-% solve_all([not(false)], true) :- !.
-% solve_all([not(true)], false) :- !.
-
-% %% and
-% solve_all([H|T], true) :-
-%     is_list(H),
-%     !,
-%     solve_all(H, true),
-%     solve_and(T, true),
-%     !.
-
-% %% or
-% solve_all([H|T], true) :- 
-%     solve_all([H], Hres),
-%     !,
-%     solve_all(T, Tres),
-%     or(Hres, Tres).
-
-
-% solve_and([], true) :- !.
-% solve_and(Lst, Res) :-
-%     solve_all(Lst, Res).
-
-
-% or(true,false).
-% or(true,true).
-% or(false,true).
