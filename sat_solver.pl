@@ -37,19 +37,28 @@ exactly_one_pos(ListOfVars, NFormula) :-
 	exactly_one_pos(ListOfVars, Length, NFormula), !.
 
 % Create DNF; Each conjuction has all but one element negated.
-% Creates a lot of unnecessary elements, but returns a correct result.
+% Creates a lot of unnecessary elements, but returns a correct result ?!
 exactly_one_pos(_, 0, lit(false)) :- !.
-exactly_one_pos([H|T], Length, or(and(H, NegatedList), NFormula)) :-
+exactly_one_pos([H|T], 1, NFormula) :- 
+	negate_list(T, NegatedList),
+	NFormula = and(H, NegatedList).
+exactly_one_pos([H|T], Length, NFormula) :-
 	% format("~w~n", Length), % TODO: remove debug format
 	% format("~w~n", H), % TODO: remove debug format
 	NewLength is Length -1,
 	append(T, [H], RotatetList),
-	negate_list(T, NegatedList), 
-	exactly_one_pos(RotatetList, NewLength, NFormula), !.
+	negate_list(T, NegatedList),
+	exactly_one_pos(RotatetList, NewLength, NFormulaR), !,
+	NFormula = or(and(H, NegatedList), NFormulaR).
 
 negate_list([], lit(true)) :- !.
-negate_list([H|T], and(not(H), NT)) :- !,
-	negate_list(T, NT).
+negate_list([H|T], Result) :-
+    negate_list(T, NT),
+    (
+		NT = lit(true) ->  Result = not(H);
+		Result = and(not(H), NT)
+    ).
+
 
 normalise_list([], []) :- !.
 normalise_list([H|T], [NH|NT]) :- !,
@@ -62,7 +71,7 @@ to_cnf(Formula, CNF) :-
 	normalise(Formula, CNF1), !,
 	to_cnf2_loop(CNF1, CNF2), !,
 	to_cnf3_loop(CNF2, CNF3), !,
-	% format("~w~n", CNF1), % TODO: remove debug format
+	format("~w~n", CNF1), % TODO: remove debug format
 	to_list(CNF3, CNF), !.
 	
 % Push negations inward, until exclusively lit(X) elements
