@@ -62,7 +62,7 @@ to_cnf(Formula, CNF) :-
 	normalise(Formula, CNF1), !,
 	to_cnf2_loop(CNF1, CNF2), !,
 	to_cnf3_loop(CNF2, CNF3), !,
-	format("~w~n", CNF1), % TODO: remove debug format
+	% format("~w~n", CNF1), % TODO: remove debug format
 	to_list(CNF3, CNF), !.
 	
 % Push negations inward, until exclusively lit(X) elements
