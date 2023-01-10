@@ -204,15 +204,23 @@ member_checkBranch(X, [H|T]) :-
     member_checkBranch(X, T), !.
 
 
-remover(_, [], []) :- !.
-remover(R, [H|T], T2) :- 
-    \+ H \== R, 
-    remover(R, T, T2), 
-    !.
-remover(R, [H|T], [H|T2]) :- 
-    H \== R, 
-    remover(R, T, T2), 
-    !.
+
+remover(R, List, NewList) :-
+	(   length(List, 1),   % check if the list has only one element 
+		[H|_] = List,      % if that element is false, the entire
+		H == R,			   % CNF is false.
+		R == false
+	) -> fail ; remover_helper(R, List, NewList).
+
+remover_helper(_, [], []) :- !.
+remover_helper(R, [H|T], T2) :- 
+	H == R, 
+	remover_helper(R, T, T2), 
+	!.
+remover_helper(R, [H|T], [H|T2]) :- 
+	H \== R, 
+	remover_helper(R, T, T2), 
+	!.
 
 simplify_dpllUnit(_Lit, [], []).
 simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
@@ -258,11 +266,10 @@ simplify(Lit, CNF, NEWCNF, N) :-
         ;
         negate(Lit, NegLit)),
     maplist(remover(NegLit), CNF, CNF1),
-    maplist(remover([NegLit]), CNF1, CNF2),
     (N == 0 -> 
-        simplify_dpllUnit(Lit, CNF2, CNF3);
-        simplify_dpllBranch(Lit, CNF2, CNF3)),
-    exclude(empty, CNF3, NEWCNF).
+        simplify_dpllUnit(Lit, CNF1, CNF2);
+        simplify_dpllBranch(Lit, CNF1, CNF2)),
+    exclude(empty, CNF2, NEWCNF).
 
 
 dpll([]).
