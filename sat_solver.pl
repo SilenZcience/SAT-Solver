@@ -159,9 +159,7 @@ check_brackets(CNF, NEWCNF) :-
 remove_elements_already_set(CNF, NEWCNF) :-
     maplist(remover(true), CNF, Res),
     maplist(remover(false), Res, Res1),
-    maplist(remover([true]), Res1, Res2),
-    maplist(remover([false]), Res2, Res3),
-    exclude(empty, Res3, NEWCNF).
+    exclude(empty, Res1, NEWCNF).
 
 has_empty_clause(CNF) :-
     member([], CNF), !.
