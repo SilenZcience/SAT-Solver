@@ -141,38 +141,70 @@ to_list(and(P, Q), CNF) :-
 solve(CNF) :- 
 	simplify_cnf(CNF, NEWCNF),
 	dpll(NEWCNF).
-    % remove_elements_already_set(CNF1, NEWCNF), 
-    % (CNF == NEWCNF -> 
-    %     dpll(NEWCNF) ; 
-    %     check_brackets(NEWCNF, Res), 
-    %     dpll(Res)).
 
-% check_brackets(CNF, NEWCNF) :-
-%     maplist(term_to_atom, CNF, CNF1),
-%     atomics_to_string(CNF1, CNF2),
-%     split_string(CNF2, '[', '', Res),
-%     get_element(0, Res, Temp1),
-%     get_element(1, Res, Temp2),
-%     ((Temp1 == "", Temp2 == "") -> 
-%         append(CNF, NEWCNF) ; 
-%         NEWCNF = CNF).
+dpll([]).
+dpll(CNF) :-
+    % \+has_empty_clause(CNF),
+    unit_clause(CNF, [Var]),
+    \+check_CNF(CNF, Var),
+    (var(Var) -> Var = true; (is_list(Var), get_element(0,Var, New), var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
+    simplify(Var, CNF, NEWCNF, 0), 
+    dpll(NEWCNF), !.
+dpll(CNF) :-
+    % \+has_empty_clause(CNF),
+    \+unit_clause(CNF, _), 
+    term_variables(CNF, Vars),
+    member(Var, Vars),
+    !,
+    (Var = true, simplify(Var, CNF, NEWCNF, 1); Var = false, negate(NegLit, Var), simplify(NegLit, CNF, NEWCNF, 1)), 
+    dpll(NEWCNF).
 
-%%[[false, [not(X)], [Y]]] -> [[[not(X)],[Y]]]
-% remove_elements_already_set(CNF, NEWCNF) :-
-%     maplist(remover(true), CNF, Res),
-%     maplist(remover(false), Res, Res1),
-%     exclude(empty, Res1, NEWCNF).
-
-% has_empty_clause(CNF) :-
-%     member([], CNF), !.
-
+% überprüft, ob es eine Unit-Klausel gibt
 unit_clause([H|_],H) :-
     length(H, 1),
-    % H \== true, 
-    % H \== false, 
     !.
 unit_clause([_|T],R) :-
     unit_clause(T,R).
+
+% überprüft, ob die gegebene Formel in CNF bereits eine Lösung enthält
+check_CNF(CNF, Var) :-
+    length(CNF, N),
+    maplist(length, CNF, NEWCNF),
+    (var(Var) ->
+        negate(NegLit, Var)
+        ;
+        negate(Var, NegLit)),
+    ((N == 2, length(NEWCNF, 2), (member_checkUnit(NegLit, CNF);member_checkUnit([NegLit], CNF);member_checkUnit(2, NEWCNF), get_element(1, CNF, Temp), member_checkUnit([Var], Temp), member_checkUnit([NegLit], Temp))) -> true ;
+    list_to_set(CNF, Temp),
+    ((N == 3, length(Temp, 1)) -> true;fail)).
+
+% wird verwendet, um die CNF zu vereinfachen
+simplify(Lit, CNF, NEWCNF, N) :-
+    \+check_CNFBranch(CNF),
+    (var(Lit) ->
+        negate(NegLit, Lit)
+        ;
+        negate(Lit, NegLit)),
+    maplist(remover(NegLit), CNF, CNF1),
+    (N == 0 -> 
+        simplify_dpllUnit(Lit, CNF1, CNF2);
+        simplify_dpllBranch(Lit, CNF1, CNF2)),
+    exclude(empty, CNF2, NEWCNF).
+
+simplify_dpllUnit(_Lit, [], []).
+simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
+    (member_checkUnit(Lit, H) -> 
+        V = [] ; 
+        member_checkUnit([Lit], H) -> 
+            K = H, remover([Lit], K, V); 
+            V = H, V \== Lit), simplify_dpllUnit(Lit, T, Simplified).
+
+simplify_dpllBranch(_Lit, [], []).
+simplify_dpllBranch(Lit, [H|T], [V|Simplified]) :- 
+    (member_checkBranch(Lit, H) -> V = [] ; 
+    member_checkBranch([Lit], H) -> K = H, 
+    remover([Lit], K, V); V = H, V \== Lit), 
+    simplify_dpllBranch(Lit, T, Simplified).
 
 negate(not(X),X) :- !.
 negate(X,not(X)) :- !.
@@ -188,7 +220,6 @@ member_checkUnit(true, X) :-
 member_checkUnit(X, [H|T]) :- 
     X == H, !; 
     member_checkUnit(X, T), !.
-
 
 member_checkBranch(false, X) :- 
     var(X), 
@@ -217,33 +248,7 @@ remover(R, [H|T], [H|T2]) :-
     remover(R, T, T2), 
     !.
 
-simplify_dpllUnit(_Lit, [], []).
-simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
-    (member_checkUnit(Lit, H) -> 
-        V = [] ; 
-        member_checkUnit([Lit], H) -> 
-            K = H, remover([Lit], K, V); 
-            V = H, V \== Lit), simplify_dpllUnit(Lit, T, Simplified).
-
-simplify_dpllBranch(_Lit, [], []).
-simplify_dpllBranch(Lit, [H|T], [V|Simplified]) :- 
-    (member_checkBranch(Lit, H) -> V = [] ; 
-    member_checkBranch([Lit], H) -> K = H, 
-    remover([Lit], K, V); V = H, V \== Lit), 
-    simplify_dpllBranch(Lit, T, Simplified).
-
 empty([]).
-
-check_CNF(CNF, Var) :-
-    length(CNF, N),
-    maplist(length, CNF, NEWCNF),
-    (var(Var) ->
-        negate(NegLit, Var)
-        ;
-        negate(Var, NegLit)),
-    ((N == 2, length(NEWCNF, 2), (member_checkUnit(NegLit, CNF);member_checkUnit([NegLit], CNF);member_checkUnit(2, NEWCNF), get_element(1, CNF, Temp), member_checkUnit([Var], Temp), member_checkUnit([NegLit], Temp))) -> true ;
-    list_to_set(CNF, Temp),
-    ((N == 3, length(Temp, 1)) -> true;fail)).
 
 check_CNFBranch(CNF) :-
     get_element(0, CNF, CNF1),
@@ -253,37 +258,7 @@ check_CNFBranch(CNF) :-
     get_element(0, CNF3, Lit2),
     negate(NegLit, Lit2),
     Lit1 == NegLit.
-
-simplify(Lit, CNF, NEWCNF, N) :-
-    \+check_CNFBranch(CNF),
-    (var(Lit) ->
-        negate(NegLit, Lit)
-        ;
-        negate(Lit, NegLit)),
-    maplist(remover(NegLit), CNF, CNF1),
-    (N == 0 -> 
-        simplify_dpllUnit(Lit, CNF1, CNF2);
-        simplify_dpllBranch(Lit, CNF1, CNF2)),
-    exclude(empty, CNF2, NEWCNF).
-
-
-dpll([]).
-dpll(CNF) :-
-    % \+has_empty_clause(CNF),
-    unit_clause(CNF, [Var]),
-    \+check_CNF(CNF, Var),
-    (var(Var) -> Var = true; (is_list(Var), get_element(0,Var, New), var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
-    simplify(Var, CNF, NEWCNF, 0), 
-    dpll(NEWCNF), !.
-dpll(CNF) :-
-    % \+has_empty_clause(CNF),
-    \+unit_clause(CNF, _), 
-    term_variables(CNF, Vars),
-    member(Var, Vars),
-    !,
-    (Var = true, simplify(Var, CNF, NEWCNF, 1); Var = false, negate(NegLit, Var), simplify(NegLit, CNF, NEWCNF, 1)), 
-    dpll(NEWCNF).
-        
+     
 
 get_element(0, [H|_], H) :- !.
 get_element(N, [_|T], H) :- 
@@ -349,18 +324,13 @@ remove_true_clauses_indirect([Clause|Clauses], Result) :-
 		remove_true_clauses_indirect(Clauses, NewClause)
 	).
 
-var_member([], _) :- fail.
-var_member([Head|_], X) :-
-	Head == X, !.
-var_member([_|Tail], X) :-
-	var_member(Tail, X).
 
 var_member_x_notx(Clause) :-
 	length(Clause, Length),
 	var_member_x_notx(Clause, Length), !.
 var_member_x_notx(_, 0) :- fail, !.
 var_member_x_notx([Head|Tail], Length) :-
-	var_member(Tail, not(Head));
+	lit_member(Tail, not(Head));
 	(Length > 0,
 	NewLength is Length -1,
 	append(Tail, [Head], RotatetList),
@@ -390,7 +360,6 @@ lit_remover([Head|Tail], R, Result) :-
 lit_remover([Head|Tail], R, [Head|Result]) :- 
 	lit_remover(Tail, R, Result), 
 	!.
-
 
 % [[X, Y], [X, Y]] -> [[X, Y]]
 remove_duplicate_disjunctions(CNF, CleanedCNF) :-
