@@ -163,13 +163,13 @@ solve(CNF) :-
 %     maplist(remover(false), Res, Res1),
 %     exclude(empty, Res1, NEWCNF).
 
-has_empty_clause(CNF) :-
-    member([], CNF), !.
+% has_empty_clause(CNF) :-
+%     member([], CNF), !.
 
 unit_clause([H|_],H) :-
     length(H, 1),
-    H \== true, 
-    H \== false, 
+    % H \== true, 
+    % H \== false, 
     !.
 unit_clause([_|T],R) :-
     unit_clause(T,R).
@@ -208,11 +208,12 @@ member_checkBranch(X, [H|T]) :-
 
 remover(_, [], []) :- !.
 remover(R, [H|T], T2) :- 
-    \+ H \== R, 
+    % \+ H \== R, 
+	H == R,
     remover(R, T, T2), 
     !.
 remover(R, [H|T], [H|T2]) :- 
-    H \== R, 
+    % H \== R, 
     remover(R, T, T2), 
     !.
 
@@ -268,14 +269,14 @@ simplify(Lit, CNF, NEWCNF, N) :-
 
 dpll([]).
 dpll(CNF) :-
-    \+has_empty_clause(CNF),
+    % \+has_empty_clause(CNF),
     unit_clause(CNF, [Var]),
     \+check_CNF(CNF, Var),
     (var(Var) -> Var = true; (is_list(Var), get_element(0,Var, New), var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
     simplify(Var, CNF, NEWCNF, 0), 
     dpll(NEWCNF), !.
 dpll(CNF) :-
-    \+has_empty_clause(CNF),
+    % \+has_empty_clause(CNF),
     \+unit_clause(CNF, _), 
     term_variables(CNF, Vars),
     member(Var, Vars),
