@@ -191,24 +191,32 @@ simplify(Lit, CNF, NEWCNF, N) :-
         simplify_dpllBranch(Lit, CNF1, CNF2)),
     exclude(empty, CNF2, NEWCNF).
 
+% jeden Term durchlaufen und 
+% entweder den Term entfernen, wenn er Lit enthält, 
+% oder ihn beibehalten, wenn er Lit nicht enthält
 simplify_dpllUnit(_Lit, [], []).
 simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
     (member_checkUnit(Lit, H) -> 
         V = [] ; 
         member_checkUnit([Lit], H) -> 
             K = H, remover([Lit], K, V); 
-            V = H, V \== Lit), simplify_dpllUnit(Lit, T, Simplified).
+            V = H, V \== Lit), 
+    simplify_dpllUnit(Lit, T, Simplified).
 
 simplify_dpllBranch(_Lit, [], []).
 simplify_dpllBranch(Lit, [H|T], [V|Simplified]) :- 
-    (member_checkBranch(Lit, H) -> V = [] ; 
-    member_checkBranch([Lit], H) -> K = H, 
-    remover([Lit], K, V); V = H, V \== Lit), 
+    (member_checkBranch(Lit, H) -> 
+        V = [] ; 
+        member_checkBranch([Lit], H) -> 
+            K = H, remover([Lit], K, V); 
+            V = H, V \== Lit), 
     simplify_dpllBranch(Lit, T, Simplified).
 
 negate(not(X),X) :- !.
 negate(X,not(X)) :- !.
 
+% überprüft, ob ein bestimmter Literal in einem Term 
+% vorhanden ist, der aus einzelnen Literalen besteht
 member_checkUnit(false, X) :- 
     var(X), 
     !, 
@@ -221,6 +229,8 @@ member_checkUnit(X, [H|T]) :-
     X == H, !; 
     member_checkUnit(X, T), !.
 
+% überprüft, ob ein bestimmter Literal in einem Term 
+% vorhanden ist, der aus mehreren Literalen besteht
 member_checkBranch(false, X) :- 
     var(X), 
     !, 
