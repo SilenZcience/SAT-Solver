@@ -226,13 +226,27 @@ solve(CNF) :-
 	simplify_cnf(CNF, NEWCNF),
 	dpll(NEWCNF).
 
+check_same_variable_in_lists(_, []) :- fail, !.
+check_same_variable_in_lists(V, [H|_]) :- [V] == [H], !.
+check_same_variable_in_lists(V, [H|T]) :- [V] \== [H], check_same_variable_in_lists(V, T), !.  
+
+remove_clause_same_v(V, [H|T], R) :- check_same_variable_in_lists(V, H), remove_clause_same_v(V, T, R).
+remove_clause_same_v(V, [H|T], R) :- \+ check_same_variable_in_lists(V, H), remove_clause_same_v(V, T, RR), append([H], RR, R).
+remove_clause_same_v(_, [], []).
+
+
 dpll([]).
 dpll(CNF) :-
     % \+has_empty_clause(CNF),
     unit_clause(CNF, [Var]),
     \+check_CNF(CNF, Var),
-    (var(Var) -> Var = true; (is_list(Var), get_element(0,Var, New), var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
-    simplify(Var, CNF, NEWCNF, 0), 
+    (var(Var) -> 
+        Var = true;
+        (is_list(Var), 
+        get_element(0,Var, New), 
+        var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
+    %simplify(Var, CNF, NEWCNF), 
+    remove_clause_same_v(Var, CNF, NEWCNF), 
     dpll(NEWCNF), !.
 dpll(CNF) :-
     % \+has_empty_clause(CNF),
@@ -240,7 +254,11 @@ dpll(CNF) :-
     term_variables(CNF, Vars),
     member(Var, Vars),
     !,
-    (Var = true, simplify(Var, CNF, NEWCNF, 1); Var = false, negate(NegLit, Var), simplify(NegLit, CNF, NEWCNF, 1)), 
+    (Var = true,
+        simplify(Var, CNF, NEWCNF); 
+    Var = false, 
+    negate(NegLit, Var), 
+    simplify(NegLit, CNF, NEWCNF)),
     dpll(NEWCNF).
 
 % überprüft, ob es eine Unit-Klausel gibt
@@ -263,16 +281,14 @@ check_CNF(CNF, Var) :-
     ((N == 3, length(Temp, 1)) -> true;fail)).
 
 % wird verwendet, um die CNF zu vereinfachen
-simplify(Lit, CNF, NEWCNF, N) :-
+simplify(Lit, CNF, NEWCNF) :-
     \+check_CNFBranch(CNF),
     (var(Lit) ->
         negate(NegLit, Lit)
         ;
         negate(Lit, NegLit)),
     maplist(remover(NegLit), CNF, CNF1),
-    (N == 0 -> 
-        simplify_dpllUnit(Lit, CNF1, CNF2);
-        simplify_dpllBranch(Lit, CNF1, CNF2)),
+    simplify_dpllUnit(Lit, CNF1, CNF2),
     exclude(empty, CNF2, NEWCNF).
 
 % jeden Term durchlaufen und 
@@ -286,15 +302,6 @@ simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :-
             K = H, remover([Lit], K, V); 
             V = H, V \== Lit), 
     simplify_dpllUnit(Lit, T, Simplified).
-
-simplify_dpllBranch(_Lit, [], []).
-simplify_dpllBranch(Lit, [H|T], [V|Simplified]) :- 
-    (member_checkBranch(Lit, H) -> 
-        V = [] ; 
-        member_checkBranch([Lit], H) -> 
-            K = H, remover([Lit], K, V); 
-            V = H, V \== Lit), 
-    simplify_dpllBranch(Lit, T, Simplified).
 
 negate(not(X),X) :- !.
 negate(X,not(X)) :- !.
@@ -312,23 +319,6 @@ member_checkUnit(true, X) :-
 member_checkUnit(X, [H|T]) :- 
     X == H, !; 
     member_checkUnit(X, T), !.
-
-% überprüft, ob ein bestimmter Literal in einem Term 
-% vorhanden ist, der aus mehreren Literalen besteht
-member_checkBranch(false, X) :- 
-    var(X), 
-    !, 
-    X == false.
-member_checkBranch(true, X) :- 
-    var(X), 
-    !, 
-    X == true.
-member_checkBranch(X, [H|T]) :- 
-    X == H, !; 
-    member_checkBranch(X, T), !.
-member_checkBranch(X, [H|T]) :- 
-    is_list(H), member(X, H) ; 
-    member_checkBranch(X, T), !.
 
 
 remover(_, [], []) :- !.
@@ -359,6 +349,9 @@ get_element(N, [_|T], H) :-
     N > 0, 
     N1 is N - 1, 
     get_element(N1, T, H), !.
+
+
+
 
 
 simplify_cnf(CNF, NEWCNF) :- 
