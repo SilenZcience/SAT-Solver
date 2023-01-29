@@ -92,75 +92,133 @@ exactly_one_pos_and([H], H).
 exactly_one_pos_and([H|T], and(H, B)) :- exactly_one_pos_and(T, B).
 % --------------- End Version 2 ---------------
 
-
-to_cnf(Formula, CNF) :-
-	normalise(Formula, CNF1), !,
-	to_cnf2_loop(CNF1, CNF2), !,
-	to_cnf3_loop(CNF2, CNF3), !,
-	% format("~w~n", CNF1), % Debug
-	% format("~w~n", CNF2), % Debug
-	% format("~w~n", CNF3), % Debug
-	to_list(CNF3, CNF), !.
+% % --------------- Version 1 ---------------
+% to_cnf(Formula, CNF) :-
+% 	normalise(Formula, CNF1), !,
+% 	to_cnf2_loop(CNF1, CNF2), !,
+% 	to_cnf3_loop(CNF2, CNF3), !,
+% 	% format("~w~n", CNF1), % Debug
+% 	% format("~w~n", CNF2), % Debug
+% 	% format("~w~n", CNF3), % Debug
+% 	to_list(CNF3, CNF), !.
 	
-% Push negations inward, until exclusively lit(X) elements
-% are negated.
-to_cnf2_loop(Formula, Result) :-
-	to_cnf2(Formula, TempResult),
-	(Formula = TempResult -> Result = Formula ;
-		to_cnf2_loop(TempResult, Result)).
+% % Push negations inward, until exclusively lit(X) elements
+% % are negated.
+% to_cnf2_loop(Formula, Result) :-
+% 	to_cnf2(Formula, TempResult),
+% 	(Formula = TempResult -> Result = Formula ;
+% 		to_cnf2_loop(TempResult, Result)).
 
-% De Morgan's Law
-to_cnf2(not(and(P, Q)), or(not(P), not(Q))).
-to_cnf2(not(or(P, Q)), and(not(P), not(Q))).
+% % De Morgan's Law
+% to_cnf2(not(and(P, Q)), or(not(P), not(Q))).
+% to_cnf2(not(or(P, Q)), and(not(P), not(Q))).
 
-% Double negation
-to_cnf2(not(not(P)), P).
+% % Double negation
+% to_cnf2(not(not(P)), P).
 
-% Default
-to_cnf2(not(Formula), not(Result)) :-
-	to_cnf2(Formula, Result).
-to_cnf2(and(P, Q), and(P1, Q1)) :-
-	to_cnf2(P, P1),
-	to_cnf2(Q, Q1).
-to_cnf2(or(P, Q), or(P1, Q1)) :-
-	to_cnf2(P, P1),
-	to_cnf2(Q, Q1).
-to_cnf2(Formula, Formula).
-
-
-% Shift disjunctions until CNF is reached
-to_cnf3_loop(Formula, Result) :-
-	to_cnf3(Formula, TempResult),
-	(Formula = TempResult -> Result = Formula ;
-		to_cnf3_loop(TempResult, Result)).
-
-% Distributive Law
-to_cnf3(or(P, and(Q, R)), and(or(P, Q), or(P, R))).
-to_cnf3(or(and(Q, R), P), and(or(P, Q), or(P, R))).
-
-% Default
-to_cnf3(not(Formula), not(Result)) :-
-	to_cnf3(Formula, Result).
-to_cnf3(and(P, Q), and(P1, Q1)) :-
-	to_cnf3(P, P1),
-	to_cnf3(Q, Q1).
-to_cnf3(or(P, Q), or(P1, Q1)) :-
-	to_cnf3(P, P1),
-	to_cnf3(Q, Q1).
-to_cnf3(Formula, Formula).
+% % Default
+% to_cnf2(not(Formula), not(Result)) :-
+% 	to_cnf2(Formula, Result).
+% to_cnf2(and(P, Q), and(P1, Q1)) :-
+% 	to_cnf2(P, P1),
+% 	to_cnf2(Q, Q1).
+% to_cnf2(or(P, Q), or(P1, Q1)) :-
+% 	to_cnf2(P, P1),
+% 	to_cnf2(Q, Q1).
+% to_cnf2(Formula, Formula).
 
 
-% Translate recursive syntax tree to list of lists.
-to_list(lit(P), [[P]]) :- !.
-to_list(not(lit(P)), [[not(P)]]) :- !.
-to_list(or(P, Q), [CNF]) :- 
-    to_list(P, [CNF1]),
-    to_list(Q, [CNF2]),
-    append(CNF1, CNF2, CNF), !.
-to_list(and(P, Q), CNF) :-
-    to_list(P, CNF1),
-    to_list(Q, CNF2),
-    append(CNF1, CNF2, CNF).
+% % Shift disjunctions until CNF is reached
+% to_cnf3_loop(Formula, Result) :-
+% 	to_cnf3(Formula, TempResult),
+% 	(Formula = TempResult -> Result = Formula ;
+% 		to_cnf3_loop(TempResult, Result)).
+
+% % Distributive Law
+% to_cnf3(or(P, and(Q, R)), and(or(P, Q), or(P, R))).
+% to_cnf3(or(and(Q, R), P), and(or(P, Q), or(P, R))).
+
+% % Default
+% to_cnf3(not(Formula), not(Result)) :-
+% 	to_cnf3(Formula, Result).
+% to_cnf3(and(P, Q), and(P1, Q1)) :-
+% 	to_cnf3(P, P1),
+% 	to_cnf3(Q, Q1).
+% to_cnf3(or(P, Q), or(P1, Q1)) :-
+% 	to_cnf3(P, P1),
+% 	to_cnf3(Q, Q1).
+% to_cnf3(Formula, Formula).
+
+
+% % Translate recursive syntax tree to list of lists.
+% to_list(lit(P), [[P]]) :- !.
+% to_list(not(lit(P)), [[not(P)]]) :- !.
+% to_list(or(P, Q), [CNF]) :- 
+%     to_list(P, [CNF1]),
+%     to_list(Q, [CNF2]),
+%     append(CNF1, CNF2, CNF), !.
+% to_list(and(P, Q), CNF) :-
+%     to_list(P, CNF1),
+%     to_list(Q, CNF2),
+%     append(CNF1, CNF2, CNF).
+% % --------------- End Version 1 ---------------
+
+% --------------- Version 2 ---------------
+to_cnf(Formula, CNF) :-
+	normalise(Formula, Normalised), !,
+	to_cnf_push_negations_inward_loop(Normalised, CNF2),
+	push_disjunctions_inward_loop(CNF2, CNF3),
+	listify(CNF3, CNF).
+	
+to_cnf_push_negations_inward_loop(Formula, Result) :-
+	to_cnf_push_negations_inward(Formula, Temp),
+	(Formula = Temp -> Result = Formula ;
+		to_cnf_push_negations_inward_loop(Temp, Result)).
+
+to_cnf_push_negations_inward(Formula, Result) :-
+	Formula = not(not(A)) -> to_cnf_push_negations_inward(A, Result) ;
+	Formula = not(or(A, B)) -> (to_cnf_push_negations_inward(A, AA), to_cnf_push_negations_inward(B, BB),
+								Result = and(not(AA), not(BB))) ;
+    Formula = not(and(A, B)) -> (to_cnf_push_negations_inward(A, AA), to_cnf_push_negations_inward(B, BB),
+								Result = or(not(AA), not(BB))) ;
+    Formula = not(A) -> (to_cnf_push_negations_inward(A, B),
+						Result = not(B)) ;
+    Formula = and(A, B) -> (to_cnf_push_negations_inward(A, AA), to_cnf_push_negations_inward(B, BB),
+							Result = and(AA, BB)) ;
+    Formula = or(A, B) -> (to_cnf_push_negations_inward(A, AA), to_cnf_push_negations_inward(B, BB),
+							Result = or(AA, BB)) ;
+    Formula = lit(_) -> Result = Formula.
+
+push_disjunctions_inward_loop(Formula, Result) :-
+	push_disjunctions_inward(Formula, Temp),
+	(Formula = Temp -> Result = Formula ;
+		push_disjunctions_inward_loop(Temp, Result)).
+
+push_disjunctions_inward(Formula, Result) :-
+	(Formula = or(A, and(B, C)) ;
+	Formula = or(and(B, C), A)) ->
+							(push_disjunctions_inward(A, AA), push_disjunctions_inward(B, BB), push_disjunctions_inward(C, CC),
+							Result = and(or(AA, BB), or(AA, CC))) ;
+	Formula = not(A) -> (push_disjunctions_inward(A, AA), Result = not(AA)) ;
+	Formula = and(A, B) -> (push_disjunctions_inward(A, AA), push_disjunctions_inward(B, BB),
+							Result = and(AA, BB)) ;
+	Formula = or(A, B) -> (push_disjunctions_inward(A, AA), push_disjunctions_inward(B, BB),
+							Result = or(AA, BB)) ;
+	Formula = lit(_) -> Result = Formula.
+
+listify(Literal, List) :- Literal = lit(A), List = [[A]].
+listify(NotLiteral, List) :- NotLiteral = not(lit(A)), List = [[not(A)]].
+listify(OrExpression, List) :-
+	OrExpression = or(A, B),
+    listify(A, [AA]), listify(B, [BB]),
+    append(AA, BB, C),
+	List = [C].
+listify(AndExpression, List) :-
+	AndExpression = and(A, B),
+    listify(A, AA), listify(B, BB),
+    append(AA, BB, C),
+	List = C.
+% --------------- End Version 2 ---------------
 
 % TODO: fix tests unsat6
 %% solve(+CNF).
