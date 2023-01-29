@@ -241,10 +241,14 @@ dpll(CNF) :-
     unit_clause(CNF, [Var]),
     \+check_CNF(CNF, Var),
     (var(Var) -> 
-        Var = true;
+        Var = true ;
         (is_list(Var), 
-        get_element(0,Var, New), 
-        var(New)) -> New = true ; term_variables(Var, Res), member(This, Res), This = false),
+        get_element(0, Var, New), 
+        var(New)) -> 
+			New = true ; 
+			term_variables(Var, Res), 
+			member(This, Res), 
+			This = false),
     %simplify(Var, CNF, NEWCNF), 
     remove_clause_same_v(Var, CNF, NEWCNF), 
     dpll(NEWCNF), !.
@@ -252,10 +256,9 @@ dpll(CNF) :-
     % \+has_empty_clause(CNF),
     \+unit_clause(CNF, _), 
     term_variables(CNF, Vars),
-    member(Var, Vars),
-    !,
+    member(Var, Vars), !,
     (Var = true,
-        simplify(Var, CNF, NEWCNF); 
+    simplify(Var, CNF, NEWCNF) ; 
     Var = false, 
     negate(NegLit, Var), 
     simplify(NegLit, CNF, NEWCNF)),
@@ -273,19 +276,28 @@ check_CNF(CNF, Var) :-
     length(CNF, N),
     maplist(length, CNF, NEWCNF),
     (var(Var) ->
-        negate(NegLit, Var)
-        ;
+        negate(NegLit, Var) ;
         negate(Var, NegLit)),
-    ((N == 2, length(NEWCNF, 2), (member_checkUnit(NegLit, CNF);member_checkUnit([NegLit], CNF);member_checkUnit(2, NEWCNF), get_element(1, CNF, Temp), member_checkUnit([Var], Temp), member_checkUnit([NegLit], Temp))) -> true ;
-    list_to_set(CNF, Temp),
-    ((N == 3, length(Temp, 1)) -> true;fail)).
+    (
+		(N == 2, 
+		length(NEWCNF, 2), 
+		(member_checkUnit(NegLit, CNF);
+		member_checkUnit([NegLit], CNF);
+		member_checkUnit(2, NEWCNF), 
+		get_element(1, CNF, Temp), 
+		member_checkUnit([Var], Temp), 
+		member_checkUnit([NegLit], Temp))) -> 
+			true;
+    		list_to_set(CNF, Temp),
+    	((N == 3, length(Temp, 1)) -> 
+			true;
+			fail)).
 
 % wird verwendet, um die CNF zu vereinfachen
 simplify(Lit, CNF, NEWCNF) :-
     \+check_CNFBranch(CNF),
     (var(Lit) ->
-        negate(NegLit, Lit)
-        ;
+        negate(NegLit, Lit) ;
         negate(Lit, NegLit)),
     maplist(remover(NegLit), CNF, CNF1),
     simplify_dpllUnit(Lit, CNF1, CNF2),
@@ -299,7 +311,7 @@ simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :-
     (member_checkUnit(Lit, H) -> 
         V = [] ; 
         member_checkUnit([Lit], H) -> 
-            K = H, remover([Lit], K, V); 
+            K = H, remover([Lit], K, V) ; 
             V = H, V \== Lit), 
     simplify_dpllUnit(Lit, T, Simplified).
 
@@ -309,12 +321,10 @@ negate(X,not(X)) :- !.
 % überprüft, ob ein bestimmter Literal in einem Term 
 % vorhanden ist, der aus einzelnen Literalen besteht
 member_checkUnit(false, X) :- 
-    var(X), 
-    !, 
+    var(X), !, 
     X == false.
 member_checkUnit(true, X) :- 
-    var(X), 
-    !, 
+    var(X), !, 
     X == true.
 member_checkUnit(X, [H|T]) :- 
     X == H, !; 
@@ -323,14 +333,10 @@ member_checkUnit(X, [H|T]) :-
 
 remover(_, [], []) :- !.
 remover(R, [H|T], T2) :- 
-    % \+ H \== R, 
 	H == R,
-    remover(R, T, T2), 
-    !.
+    remover(R, T, T2), !.
 remover(R, [H|T], [H|T2]) :- 
-    % H \== R, 
-    remover(R, T, T2), 
-    !.
+    remover(R, T, T2), !.
 
 empty([]).
 
