@@ -3,68 +3,94 @@
 :- load_test_files([]).
 :- use_module(library(lists)).
 
-normalise(lit(L), lit(L)) :- !.
-normalise(equivalence(A, B), NFormula) :-
-    normalise(and(implies(A, B), implies(B, A)), NFormula).
-normalise(implies(P, Q), or(not(P1), Q1)) :- !,
-    normalise(P, P1),
-    normalise(Q, Q1).
-normalise(and(P, Q), and(P1, Q1)) :- !,
-    normalise(P, P1),
-    normalise(Q, Q1).
-normalise(or(P, Q), or(P1, Q1)) :- !,
-    normalise(P, P1),
-    normalise(Q, Q1).
-normalise(not(P), not(P1)) :- !,
-    normalise(P, P1).
+% % --------------- Version 1 ---------------
+% normalise(lit(L), lit(L)) :- !.
+% normalise(equivalence(A, B), NFormula) :-
+%     normalise(and(implies(A, B), implies(B, A)), NFormula).
+% normalise(implies(P, Q), or(not(P1), Q1)) :- !,
+%     normalise(P, P1),
+%     normalise(Q, Q1).
+% normalise(and(P, Q), and(P1, Q1)) :- !,
+%     normalise(P, P1),
+%     normalise(Q, Q1).
+% normalise(or(P, Q), or(P1, Q1)) :- !,
+%     normalise(P, P1),
+%     normalise(Q, Q1).
+% normalise(not(P), not(P1)) :- !,
+%     normalise(P, P1).
 
-normalise(min_one_pos(ListOfVars), NFormula) :- !,
-	normalise_list(ListOfVars, NList),
-	min_one_pos(NList, NFormula).
+% normalise(min_one_pos(ListOfVars), NFormula) :- !,
+% 	normalise_list(ListOfVars, NList),
+% 	min_one_pos(NList, NFormula).
 
-normalise(exactly_one_pos(ListOfVars), NFormula) :- !,
-	normalise_list(ListOfVars, NList),
-	exactly_one_pos(NList, NFormula).
+% normalise(exactly_one_pos(ListOfVars), NFormula) :- !,
+% 	normalise_list(ListOfVars, NList),
+% 	exactly_one_pos(NList, NFormula).
 
-% Concatenate all elements by or
-min_one_pos([], lit(false)) :- !.
-min_one_pos([H|T], or(H, Rest)) :- !,
-	min_one_pos(T, Rest).
+% % Concatenate all elements by or
+% min_one_pos([], lit(false)) :- !.
+% min_one_pos([H|T], or(H, Rest)) :- !,
+% 	min_one_pos(T, Rest).
 
-% Do the recursive call n times, with n = Length of List
-exactly_one_pos(ListOfVars, NFormula) :-
-	length(ListOfVars, Length),
-	exactly_one_pos(ListOfVars, Length, NFormula), !.
+% % Do the recursive call n times, with n = Length of List
+% exactly_one_pos(ListOfVars, NFormula) :-
+% 	length(ListOfVars, Length),
+% 	exactly_one_pos(ListOfVars, Length, NFormula), !.
 
-% Create DNF; Each conjuction has all but one element negated.
-% Creates a lot of unnecessary elements, but returns a correct result!
-exactly_one_pos(_, 0, lit(false)) :- !.
-exactly_one_pos([H|T], 1, NFormula) :- 
-	negate_list(T, NegatedList),
-	NFormula = and(H, NegatedList).
-exactly_one_pos([H|T], Length, NFormula) :-
-	NewLength is Length -1,
-	append(T, [H], RotatetList),
-	negate_list(T, NegatedList),
-	exactly_one_pos(RotatetList, NewLength, NFormulaR), !,
-	NFormula = or(and(H, NegatedList), NFormulaR).
+% % Create DNF; Each conjuction has all but one element negated.
+% % Creates a lot of unnecessary elements, but returns a correct result!
+% exactly_one_pos(_, 0, lit(false)) :- !.
+% exactly_one_pos([H|T], 1, NFormula) :- 
+% 	negate_list(T, NegatedList),
+% 	NFormula = and(H, NegatedList).
+% exactly_one_pos([H|T], Length, NFormula) :-
+% 	NewLength is Length -1,
+% 	append(T, [H], RotatetList),
+% 	negate_list(T, NegatedList),
+% 	exactly_one_pos(RotatetList, NewLength, NFormulaR), !,
+% 	NFormula = or(and(H, NegatedList), NFormulaR).
 
-negate_list([], lit(true)) :- !.
-negate_list([H|T], Result) :-
-    negate_list(T, NT),
-    (
-		% simplify (last element doesn't need to call 'and')
-		NT = lit(true) ->  Result = not(H);
-		Result = and(not(H), NT)
-    ).
+% negate_list([], lit(true)) :- !.
+% negate_list([H|T], Result) :-
+%     negate_list(T, NT),
+%     (
+% 		% simplify (last element doesn't need to call 'and')
+% 		NT = lit(true) ->  Result = not(H);
+% 		Result = and(not(H), NT)
+%     ).
 
-% normalise all elements from min_one_pos and exactly_one_pos
-% unnecessary if only lit() values are used within these terms.
-normalise_list([], []) :- !.
-normalise_list([H|T], [NH|NT]) :- !,
-	normalise(H, NH),
-	normalise_list(T, NT).
+% % normalise all elements from min_one_pos and exactly_one_pos
+% % unnecessary if only lit() values are used within these terms.
+% normalise_list([], []) :- !.
+% normalise_list([H|T], [NH|NT]) :- !,
+% 	normalise(H, NH),
+% 	normalise_list(T, NT).
+% % --------------- End Version 1 ---------------
 
+% --------------- Version 2 ---------------
+normalise(Formula, NFormula) :-
+    (Formula = lit(A) -> NFormula = lit(A)) ;
+    (Formula = equivalence(A, B) -> normalise(and(or(not(A), B), or(not(B), A)), NFormula)) ;
+    (Formula = implies(A, B) -> normalise(A, AA), normalise(B, BB), NFormula = or(not(AA), BB)) ;
+    (Formula = and(A, B) -> normalise(A, AA), normalise(B, BB), NFormula = and(AA, BB)) ;
+    (Formula = or(A, B) -> normalise(A, AA), normalise(B, BB), NFormula = or(AA, BB)) ;
+    (Formula = not(A) -> normalise(A, AA), NFormula = not(AA)) ;
+	(Formula = min_one_pos(ListOfVars) -> min_one_pos(ListOfVars, NFormula)) ;
+	(Formula = exactly_one_pos(ListOfVars) -> exactly_one_pos(ListOfVars, NFormula)).
+
+min_one_pos([H], H) :- !.
+min_one_pos([H|T], R) :- 
+	min_one_pos(T, R1),
+	R = or(H, R1).
+
+exactly_one_pos([H|T], H) :-
+	length([H|T], 1), !.
+exactly_one_pos(L, and(A, not(B))) :- exactly_one_pos_xor(L, A), exactly_one_pos_and(L, B).
+exactly_one_pos_xor([H], H).
+exactly_one_pos_xor([H|T], or(and(not(H),B),and(H, not(B)))) :- exactly_one_pos_xor(T, B).
+exactly_one_pos_and([H], H).
+exactly_one_pos_and([H|T], and(H, B)) :- exactly_one_pos_and(T, B).
+% --------------- End Version 2 ---------------
 
 
 to_cnf(Formula, CNF) :-
