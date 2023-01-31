@@ -272,43 +272,34 @@ to_list(and(P, Q), CNF) :-
 
 % --------------- Version 1 solve ---------------
 
-unit_propagate([], []).
-unit_propagate([H|T], R) :-
-	length(H, 1),
-	contradicting_unit_clauses(H, [H|T], [NH|NT]),
-	unit_propagate([[], NH|NT], R), !.
-unit_propagate([H|T], [H|NT]) :-
-	unit_propagate(T, NT), !.
-
-
-contradicting_unit_clauses([Element], List, NList) :-
-	check_contradiction(Element, List),
-	remove_contradicting([Element], List, NList).
-
-check_contradiction(Element, [H|_]) :-
-	(Element == not(X), H == [X]; H == [not(Element)]).
-check_contradiction(Element, [_|T]) :-
-	check_contradiction(Element, T).
-
-remove_contradicting([A], [H|T], R) :-
-	([A] == H; [not(A)] == H),
-	remove_contradicting([A], T, R), !. 
-remove_contradicting(A, [H|T], [H|NT]) :-
-	remove_contradicting(A, T, NT), !.
-remove_contradicting(_, [], []).
-
 solve([]).
 solve(CNF) :-
-	unit_propagate(CNF, NCNF),
+	\+ member([], CNF),
+	unit_propagation(CNF, P),
+	solve(P), !.
+solve(CNF) :-
+	\+ member([], CNF),
     term_variables(CNF, Vars),
-    member(Var, Vars), !,
+	member(Var, Vars), !,
     (Var = true,
-    simplify(Var, NCNF, NEWCNF) ; 
+    simplify(Var, CNF, Simplified) ; 
     Var = false, 
     negate(Var, NegatedVar), 
-    simplify(NegatedVar, NCNF, NEWCNF)),
-    solve(NEWCNF).
+    simplify(NegatedVar, CNF, Simplified)),
+    solve(Simplified).
 
+unit_propagation(CNF, P) :-
+	is_unit_clause(CNF, [Var]),
+	(var(Var), Var = true;
+	term_variables(Var, Res), member(false, Res)),
+	remove_disjunctions_with_literal(Var, CNF, P),!.
+
+is_unit_clause([H|_], H) :-
+	length(H, 1).
+is_unit_clause([_|T], R) :-	
+	is_unit_clause(T, R).
+	
+	
 
 simplify(Lit, CNF, Simplified) :-
     negate(Lit, NegatedLit),
@@ -329,8 +320,6 @@ negate(X,not(X)) :- !.
 
 member_checkUnit(X, [H|T]) :- 
     X == H; member_checkUnit(X, T), !.
-member_checkUnit(Literal, X) :- 
-    var(X), X = Literal.
 
 
 remove_literal(_, [], []).
@@ -347,46 +336,46 @@ remove_disjunctions_with_literal(Literal, [H|T], R) :-
 	remove_disjunctions_with_literal(Literal, T, RT).
 
 
-simplify_cnf(CNF, NEWCNF) :- 
-	% not(true) -> false, not(false) -> true
-	dissolve_negations(CNF, CNF1), !,
-	% delete disjunction if it contains true
-	remove_true_clauses_direct(CNF1, CNF2), !,
-	% delete disjunction if it contains 'X' and 'not(X)'
-	remove_true_clauses_indirect(CNF2, CNF3), !,
-	% remove duplicated elements within each disjunction
-	remove_duplicate_elements(CNF3, CNF4), !,
-	% remove every 'false' element. if a disjunctive clause only contains 'false': fail!
-	remove_false_elements(CNF4, CNF5), !,
-	% remove duplicated disjunctions
-	remove_duplicate_disjunctions(CNF5, NEWCNF), !.
+% simplify_cnf(CNF, NEWCNF) :- 
+% 	% not(true) -> false, not(false) -> true
+% 	dissolve_negations(CNF, CNF1), !,
+% 	% delete disjunction if it contains true
+% 	remove_true_clauses_direct(CNF1, CNF2), !,
+% 	% delete disjunction if it contains 'X' and 'not(X)'
+% 	remove_true_clauses_indirect(CNF2, CNF3), !,
+% 	% remove duplicated elements within each disjunction
+% 	remove_duplicate_elements(CNF3, CNF4), !,
+% 	% remove every 'false' element. if a disjunctive clause only contains 'false': fail!
+% 	remove_false_elements(CNF4, CNF5), !,
+% 	% remove duplicated disjunctions
+% 	remove_duplicate_disjunctions(CNF5, NEWCNF), !.
 
 
-% [[X, not(true)], [not(false)]] -> [[X, false], [true]]
-dissolve_negations([], []).
-dissolve_negations([Clause|Clauses], [DissolvedClause|DissolvedClauses]) :-
-	dissolve_negations_clause(Clause, DissolvedClause), !,
-	dissolve_negations(Clauses, DissolvedClauses).
+% % [[X, not(true)], [not(false)]] -> [[X, false], [true]]
+% dissolve_negations([], []).
+% dissolve_negations([Clause|Clauses], [DissolvedClause|DissolvedClauses]) :-
+% 	dissolve_negations_clause(Clause, DissolvedClause), !,
+% 	dissolve_negations(Clauses, DissolvedClauses).
 
-dissolve_negations_clause([], []).
-dissolve_negations_clause([not(X)|Literals], [false|DissolvedLiterals]) :-
-	X==true,
-	dissolve_negations_clause(Literals, DissolvedLiterals), !.
-dissolve_negations_clause([not(X)|Literals], [true|DissolvedLiterals]) :-
-	X==false,
-	dissolve_negations_clause(Literals, DissolvedLiterals), !.
-dissolve_negations_clause([Literal|Literals], [Literal|DissolvedLiterals]) :-
-	dissolve_negations_clause(Literals, DissolvedLiterals), !.
+% dissolve_negations_clause([], []).
+% dissolve_negations_clause([not(X)|Literals], [false|DissolvedLiterals]) :-
+% 	X==true,
+% 	dissolve_negations_clause(Literals, DissolvedLiterals), !.
+% dissolve_negations_clause([not(X)|Literals], [true|DissolvedLiterals]) :-
+% 	X==false,
+% 	dissolve_negations_clause(Literals, DissolvedLiterals), !.
+% dissolve_negations_clause([Literal|Literals], [Literal|DissolvedLiterals]) :-
+% 	dissolve_negations_clause(Literals, DissolvedLiterals), !.
 
 
-% [[X, Y, true], [Z]] -> [[Z]]
-remove_true_clauses_direct([],[]).
-remove_true_clauses_direct([Clause|Clauses], Result) :-
-	(   lit_member(Clause, true)
-	->  remove_true_clauses_direct(Clauses, Result)
-	;   Result = [Clause|NewClause],
-		remove_true_clauses_direct(Clauses, NewClause)
-	).
+% % [[X, Y, true], [Z]] -> [[Z]]
+% remove_true_clauses_direct([],[]).
+% remove_true_clauses_direct([Clause|Clauses], Result) :-
+% 	(   lit_member(Clause, true)
+% 	->  remove_true_clauses_direct(Clauses, Result)
+% 	;   Result = [Clause|NewClause],
+% 		remove_true_clauses_direct(Clauses, NewClause)
+% 	).
 
 % lit_member([], _) :- fail.
 lit_member([Head|_], X) :-
@@ -395,55 +384,55 @@ lit_member([_|Tail], X) :-
 	lit_member(Tail, X).
 
 
-% [[X, Y, not(X)], [Z]] -> [[Z]]
-remove_true_clauses_indirect([], []).
-remove_true_clauses_indirect([Clause|Clauses], Result) :-
-	(   var_member_x_notx(Clause)
-	->  remove_true_clauses_indirect(Clauses, Result)
-	;   Result = [Clause|NewClause],
-		remove_true_clauses_indirect(Clauses, NewClause)
-	).
+% % [[X, Y, not(X)], [Z]] -> [[Z]]
+% remove_true_clauses_indirect([], []).
+% remove_true_clauses_indirect([Clause|Clauses], Result) :-
+% 	(   var_member_x_notx(Clause)
+% 	->  remove_true_clauses_indirect(Clauses, Result)
+% 	;   Result = [Clause|NewClause],
+% 		remove_true_clauses_indirect(Clauses, NewClause)
+% 	).
 
 
-var_member_x_notx(Clause) :-
-	length(Clause, Length),
-	var_member_x_notx(Clause, Length), !.
-var_member_x_notx(_, 0) :- fail, !.
-var_member_x_notx([Head|Tail], Length) :-
-	lit_member(Tail, not(Head));
-	(Length > 0,
-	NewLength is Length -1,
-	append(Tail, [Head], RotatetList),
-	var_member_x_notx(RotatetList, NewLength), !).
+% var_member_x_notx(Clause) :-
+% 	length(Clause, Length),
+% 	var_member_x_notx(Clause, Length), !.
+% var_member_x_notx(_, 0) :- fail, !.
+% var_member_x_notx([Head|Tail], Length) :-
+% 	lit_member(Tail, not(Head));
+% 	(Length > 0,
+% 	NewLength is Length -1,
+% 	append(Tail, [Head], RotatetList),
+% 	var_member_x_notx(RotatetList, NewLength), !).
 
 
-% [[X, X, Y]] -> [[X, Y]]
-remove_duplicate_elements([], []).
-remove_duplicate_elements([Clause|Clauses], [ClauseNoDups|Result]) :-
-	sort(Clause, ClauseNoDups),
-	remove_duplicate_elements(Clauses, Result).
+% % [[X, X, Y]] -> [[X, Y]]
+% remove_duplicate_elements([], []).
+% remove_duplicate_elements([Clause|Clauses], [ClauseNoDups|Result]) :-
+% 	sort(Clause, ClauseNoDups),
+% 	remove_duplicate_elements(Clauses, Result).
 
 
-% [[X, Y, false]] -> [[X, Y]]
-% [[false]] -> fail!
-remove_false_elements([], []).
-remove_false_elements([Clause|Clauses], [CleanClause|CleanClauses]) :-
-	lit_remover(Clause, false, CleanClause),
-	CleanClause \= [],
-	remove_false_elements(Clauses, CleanClauses).
+% % [[X, Y, false]] -> [[X, Y]]
+% % [[false]] -> fail!
+% remove_false_elements([], []).
+% remove_false_elements([Clause|Clauses], [CleanClause|CleanClauses]) :-
+% 	lit_remover(Clause, false, CleanClause),
+% 	CleanClause \= [],
+% 	remove_false_elements(Clauses, CleanClauses).
 
-lit_remover([], _, []) :- !.
-lit_remover([Head|Tail], R, Result) :- 
-	Head == R, 
-	lit_remover(Tail, R, Result), 
-	!.
-lit_remover([Head|Tail], R, [Head|Result]) :- 
-	lit_remover(Tail, R, Result), 
-	!.
+% lit_remover([], _, []) :- !.
+% lit_remover([Head|Tail], R, Result) :- 
+% 	Head == R, 
+% 	lit_remover(Tail, R, Result), 
+% 	!.
+% lit_remover([Head|Tail], R, [Head|Result]) :- 
+% 	lit_remover(Tail, R, Result), 
+% 	!.
 
-% [[X, Y], [X, Y]] -> [[X, Y]]
-remove_duplicate_disjunctions(CNF, CleanedCNF) :-
-	sort(CNF, CleanedCNF).
+% % [[X, Y], [X, Y]] -> [[X, Y]]
+% remove_duplicate_disjunctions(CNF, CleanedCNF) :-
+% 	sort(CNF, CleanedCNF).
 % --------------- End Version 1 solve ---------------
 
 % % --------------- Version 2 solve ---------------
