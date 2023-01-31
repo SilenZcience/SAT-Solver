@@ -272,69 +272,79 @@ to_list(and(P, Q), CNF) :-
 
 % --------------- Version 1 solve ---------------
 
-% solve([]).
-% solve(CNF) :-
-%     unit_clause(CNF, [Var]),
-%     (var(Var) -> Var = true;
-% 	term_variables(Var, Res),
-% 	member(false, Res)),
-%     remove_disjunctions_with_literal(Var, CNF, NEWCNF),
-%     solve(NEWCNF), !.
-
-% solve(CNF) :-
-%     \+unit_clause(CNF, _), 
-%     term_variables(CNF, Vars),
-%     member(Var, Vars), !,
-%     (Var = true,
-%     simplify(Var, CNF, NEWCNF) ; 
-%     Var = false, 
-%     negate(Var, NegatedVar), 
-%     simplify(NegatedVar, CNF, NEWCNF)),
-%     solve(NEWCNF).
+unit_propagate([], []).
+unit_propagate([H|T], R) :-
+	length(H, 1),
+	contradicting_unit_clauses(H, [H|T], [NH|NT]),
+	unit_propagate([[], NH|NT], R), !.
+unit_propagate([H|T], [H|NT]) :-
+	unit_propagate(T, NT), !.
 
 
-% unit_clause([H|T], R) :-
-% 	(length(H, 1) -> R = H; unit_clause(T, R)).
-	
+contradicting_unit_clauses([Element], List, NList) :-
+	check_contradiction(Element, List),
+	remove_contradicting([Element], List, NList).
 
-% simplify(Lit, CNF, Simplified) :-
-%     negate(Lit, NegatedLit),
-%     maplist(remove_literal(NegatedLit), CNF, CNF1),
-%     simplify_dpllUnit(Lit, CNF1, CNF2),
-%     exclude(empty, CNF2, Simplified).
+check_contradiction(Element, [H|_]) :-
+	(Element == not(X), H == [X]; H == [not(Element)]).
+check_contradiction(Element, [_|T]) :-
+	check_contradiction(Element, T).
 
+remove_contradicting([A], [H|T], R) :-
+	([A] == H; [not(A)] == H),
+	remove_contradicting([A], T, R), !. 
+remove_contradicting(A, [H|T], [H|NT]) :-
+	remove_contradicting(A, T, NT), !.
+remove_contradicting(_, [], []).
 
-% simplify_dpllUnit(_Lit, [], []).
-% simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
-%     (member_checkUnit(Lit, H) -> 
-%         V = [] ; 
-%         member_checkUnit([Lit], H) -> 
-%             K = H, remove_literal([Lit], K, V) ; 
-%             V = H, V \== Lit), 
-%     simplify_dpllUnit(Lit, T, Simplified).
-
-% negate(not(X),X) :- !.
-% negate(X,not(X)) :- !.
-
-
-% member_checkUnit(X, [H|T]) :- 
-%     X == H; member_checkUnit(X, T), !.
-% member_checkUnit(Literal, X) :- 
-%     var(X), X = Literal.
-
-
-% remove_literal(_, [], []).
-% remove_literal(Literal, [H|T], Cleansed) :-
-%     (H == Literal -> remove_literal(Literal, T, Cleansed);
-% 	remove_literal(Literal, T, Tail), Cleansed = [H|Tail]).
-
-% empty([]).
+solve([]).
+solve(CNF) :-
+	unit_propagate(CNF, NCNF),
+    term_variables(CNF, Vars),
+    member(Var, Vars), !,
+    (Var = true,
+    simplify(Var, NCNF, NEWCNF) ; 
+    Var = false, 
+    negate(Var, NegatedVar), 
+    simplify(NegatedVar, NCNF, NEWCNF)),
+    solve(NEWCNF).
 
 
-% remove_disjunctions_with_literal(_, [], []).
-% remove_disjunctions_with_literal(Literal, [H|T], R) :- 
-%     (lit_member(H, Literal) -> remove_disjunctions_with_literal(Literal, T, R);
-% 	remove_disjunctions_with_literal(Literal, T, Result), R = [H|Result]).
+simplify(Lit, CNF, Simplified) :-
+    negate(Lit, NegatedLit),
+    maplist(remove_literal(NegatedLit), CNF, CNF1),
+    simplify_dpllUnit(Lit, CNF1, Simplified).
+
+
+simplify_dpllUnit(_Lit, [], []).
+simplify_dpllUnit(Lit, [H|T], Simplified) :-
+	(member_checkUnit(Lit, H) ->
+	Simplified = SimplifiedTail ;
+	Simplified = [H|SimplifiedTail]),
+	simplify_dpllUnit(Lit, T, SimplifiedTail).
+
+negate(not(X),X) :- !.
+negate(X,not(X)) :- !.
+
+
+member_checkUnit(X, [H|T]) :- 
+    X == H; member_checkUnit(X, T), !.
+member_checkUnit(Literal, X) :- 
+    var(X), X = Literal.
+
+
+remove_literal(_, [], []).
+remove_literal(Literal, [H|T], Cleansed) :-
+    (H == Literal -> remove_literal(Literal, T, Cleansed);
+	remove_literal(Literal, T, Tail), Cleansed = [H|Tail]).
+
+empty([]).
+
+
+remove_disjunctions_with_literal(_, [], []).
+remove_disjunctions_with_literal(Literal, [H|T], R) :-
+	(lit_member(H, Literal) -> R = RT ; R = [H|RT]),
+	remove_disjunctions_with_literal(Literal, T, RT).
 
 
 simplify_cnf(CNF, NEWCNF) :- 
@@ -437,84 +447,79 @@ remove_duplicate_disjunctions(CNF, CleanedCNF) :-
 % --------------- End Version 1 solve ---------------
 
 % % --------------- Version 2 solve ---------------
-% TODO: dpll, simplify, simplify_dpllUnit, remove_disjunctions_with_literal
-% refactoren!
+% solve(CNF) :-
+% 	dpll(CNF).
 
-solve(CNF) :-
-	dpll(CNF).
+% dpll([]).
+% dpll(CNF) :-
+% 	% unit propagation
+%     is_unit_clause(CNF, [Var]),
+%     (var(Var) -> Var = true;
+% 	term_variables(Var, Res),
+% 	member(false, Res)),
+%     disjunction_remover(Var, CNF, NEWCNF),
+%     dpll(NEWCNF), !.
 
-dpll([]).
-dpll(CNF) :-
-    is_unit_clause(CNF, [Var]),
-    (var(Var) -> Var = true;
-	term_variables(Var, Res),
-	member(false, Res)),
-    remove_disjunctions_with_literal(Var, CNF, NEWCNF),
-    dpll(NEWCNF), !.
-
-dpll(CNF) :-
-    \+is_unit_clause(CNF, _), 
-    term_variables(CNF, Vars),
-    member(Var, Vars), !,
-    (Var = true,
-    simplify(Var, CNF, NEWCNF) ; 
-    Var = false, 
-    negate(Var, NegatedVar), 
-    simplify(NegatedVar, CNF, NEWCNF)),
-    dpll(NEWCNF).
+% dpll(CNF) :-
+%     \+is_unit_clause(CNF, _), 
+%     term_variables(CNF, Vars),
+%     member(Var, Vars), !,
+%     (Var = true,
+%     simplify(Var, CNF, NEWCNF) ; 
+%     Var = false, 
+%     negate(Var, NegatedVar), 
+%     simplify(NegatedVar, CNF, NEWCNF)),
+%     dpll(NEWCNF).
 
 
-is_unit_clause([H|_],H) :-
-    length(H, 1),
-    !.
-is_unit_clause([_|T],R) :-
-    is_unit_clause(T,R).
+% is_unit_clause([H|T], R) :-
+% 	(length(H, 1) -> R = H; is_unit_clause(T, R)).
 	
 
-simplify(Lit, CNF, Simplified) :-
-    negate(Lit, NegatedLit),
-    maplist(remover(NegatedLit), CNF, CNF1),
-    simplify_dpllUnit(Lit, CNF1, CNF2),
-    exclude(empty, CNF2, Simplified).
+% simplify(Lit, CNF, Simplified) :-
+%     negate(Lit, NegatedLit),
+%     maplist(remover(NegatedLit), CNF, CNF1),
+%     simplify_dpllUnit(Lit, CNF1, CNF2),
+%     exclude(empty_clause, CNF2, Simplified).
 
 
-simplify_dpllUnit(_Lit, [], []).
-simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
-    (termContainsLiteral(Lit, H) -> 
-        V = [] ; 
-        termContainsLiteral([Lit], H) -> 
-            K = H, remover([Lit], K, V) ; 
-            V = H, V \== Lit), 
-    simplify_dpllUnit(Lit, T, Simplified).
+% simplify_dpllUnit(_Lit, [], []).
+% simplify_dpllUnit(Lit, [H|T], [V|Simplified]) :- 
+%     (termContainsLiteral(Lit, H) -> 
+%         V = [] ; 
+%         termContainsLiteral([Lit], H) -> 
+%             K = H, remover([Lit], K, V) ; 
+%             V = H, V \== Lit), 
+%     simplify_dpllUnit(Lit, T, Simplified).
 
-negate(not(X),X) :- !.
-negate(X,not(X)) :- !.
-
-
-termContainsLiteral(false, X) :- 
-    var(X), !, 
-    X == false.
-termContainsLiteral(true, X) :- 
-    var(X), !, 
-    X == true.
-termContainsLiteral(X, [H|T]) :- 
-    X == H, !; 
-    termContainsLiteral(X, T), !.
+% negate(not(X),X) :- !.
+% negate(X,not(X)) :- !.
 
 
-remover(_, [], []) :- !.
-remover(R, [H|T], T2) :- 
-	H == R,
-    remover(R, T, T2), !.
-remover(R, [H|T], [H|T2]) :- 
-    remover(R, T, T2), !.
+% termContainsLiteral(false, X) :- 
+%     var(X), !, 
+%     X == false.
+% termContainsLiteral(true, X) :- 
+%     var(X), !, 
+%     X == true.
+% termContainsLiteral(X, [H|T]) :- 
+%     X == H, !; 
+%     termContainsLiteral(X, T), !.
 
-empty([]).
+
+% remover(_, [], []) :- !.
+% remover(R, [H|T], T2) :- 
+% 	H == R,
+%     remover(R, T, T2), !.
+% remover(R, [H|T], [H|T2]) :- 
+%     remover(R, T, T2), !.
+
+% empty_clause([]) :- !.
 
 
-remove_disjunctions_with_literal(_, [], []).
-remove_disjunctions_with_literal(Literal, [H|T], R) :- 
-    (lit_member(H, Literal) -> remove_disjunctions_with_literal(Literal, T, R);
-	remove_disjunctions_with_literal(Literal, T, Result), R = [H|Result]).
+% disjunction_remover(_, [], []).
+% disjunction_remover(Literal, [H|T], R) :- 
+%     (lit_member(H, Literal) -> disjunction_remover(Literal, T, R);
+% 	disjunction_remover(Literal, T, Result), R = [H|Result]).
 
 % % --------------- End Version 2 solve ---------------
