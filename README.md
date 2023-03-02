@@ -18,6 +18,10 @@ The input is a syntax tree that is built recursively from the following Prolog t
 * **exactly_one_pos(ListOfVars)**: exactly one variable in **ListOfVars** is true
 * **min_one_pos(ListOfVars)**: at least one variable in **ListOfVars** has to be true
 
+You can solve any formula using the following two predicates:
+- to_cnf(+Formula, -CNF).
+- solve(+CNF).
+
 ## Getting Started
 
 ### Dependencies
