@@ -62,7 +62,5 @@ CNF = [[not(false)], [true], [not(false), true]].
 
 ## Authors
 
-Contributors names and contact info
-
 [SilenZcience](https://github.com/SilenZcience) <br>
 [gulmariyam](https://github.com/gulmariyam)
