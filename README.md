@@ -1,6 +1,6 @@
 # SAT-Solver
 
-A simple SAT-Solver written in Prolog as part of an university project.
+A simple SAT-Solver written in Prolog as part of an university project at Heinrich-Heine-University (Introduction to Logic Programming). 
 
 ## Description
 
